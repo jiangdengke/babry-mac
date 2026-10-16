@@ -65,6 +65,35 @@ pub fn outputs() -> Result<Vec<OutputInfo>, String> {
     Err("babry-mac 只支持 macOS".into())
 }
 
+/// 指针当前的屏幕坐标，与 OutputInfo 相同：原点在主屏左上角，单位是点。
+/// 拖动贴图时窗口在指针下移动，事件里的窗口相对坐标会失准，所以直接查询系统。
+#[cfg(target_os = "macos")]
+pub fn pointer_location() -> Option<(f64, f64)> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSEvent, NSScreen};
+
+    let primary = NSScreen::screens(MainThreadMarker::new()?).firstObject()?;
+    let top = primary.frame().origin.y + primary.frame().size.height;
+    let mouse = NSEvent::mouseLocation();
+    Some((mouse.x, top - mouse.y))
+}
+
+/// 左键是否仍按着。窗口移动时松开事件可能丢失，以系统状态为准。
+#[cfg(target_os = "macos")]
+pub fn left_button_pressed() -> bool {
+    objc2_app_kit::NSEvent::pressedMouseButtons() & 1 != 0
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn pointer_location() -> Option<(f64, f64)> {
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn left_button_pressed() -> bool {
+    false
+}
+
 /// 把 AppKit 坐标转换为左上角原点。第一块屏幕是主屏，它的原点就是全局原点。
 fn from_cocoa(screens: &[(String, CocoaFrame, f64)], mouse: (f64, f64)) -> Vec<OutputInfo> {
     let Some((_, primary, _)) = screens.first() else {

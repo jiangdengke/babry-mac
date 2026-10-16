@@ -1,0 +1,73 @@
+// 屏幕贴图窗口：显示导出的截图，把鼠标和键盘事件交给 Rust 处理。
+// 移动、调整大小和缩放的计算在 src/pin.rs，窗口位置由 Rust 直接设置。
+// 拖动期间窗口在指针下移动，事件里的相对坐标会失准，所以按下后由 Rust 轮询指针。
+export component PinWindow inherits Window {
+    title: "Babry 贴图";
+    no-frame: true;
+    background: #00000000;
+    forward-focus: keys;
+
+    in property <image> picture;
+    // 贴图的逻辑尺寸。最小和最大尺寸都等于它，系统不会自行缩放窗口。
+    in property <length> frame-width: 100px;
+    in property <length> frame-height: 100px;
+    min-width: root.frame-width;
+    max-width: root.frame-width;
+    min-height: root.frame-height;
+    max-height: root.frame-height;
+    // 指针形状：0 默认；1 左右；2 上下；3 左上到右下；4 右上到左下。
+    in property <int> cursor-shape: 0;
+
+    callback hover(length, length); // 指针移动，用于更新指针形状；拖动中由 Rust 忽略。
+    callback press(length, length); // 左键按下，坐标相对窗口左上角。
+    callback zoom(length); // 向上滚动为正。
+    callback close-pin();
+
+    Image {
+        source: root.picture;
+        width: 100%;
+        height: 100%;
+        image-fit: fill;
+    }
+    // 细边框把贴图和后面的屏幕内容区分开。
+    Rectangle {
+        border-width: 1px;
+        border-color: #ffffff40;
+    }
+
+    TouchArea {
+        mouse-cursor: root.cursor-shape == 1 ? MouseCursor.ew-resize
+            : root.cursor-shape == 2 ? MouseCursor.ns-resize
+            : root.cursor-shape == 3 ? MouseCursor.nwse-resize
+            : root.cursor-shape == 4 ? MouseCursor.nesw-resize
+            : MouseCursor.default;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.move) {
+                root.hover(self.mouse-x, self.mouse-y);
+            }
+            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                root.press(self.mouse-x, self.mouse-y);
+            }
+            // 右键关闭贴图。
+            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                root.close-pin();
+            }
+        }
+        scroll-event(event) => {
+            if (event.delta-y != 0px) {
+                root.zoom(event.delta-y);
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    keys := FocusScope {
+        KeyBinding {
+            keys: @keys(Escape);
+            activated => {
+                root.close-pin();
+            }
+        }
+    }
+}

@@ -4,7 +4,9 @@ use babry::{
     core::History,
     debug_log::DebugLog,
     display::{self, OutputInfo},
-    editor, overlay, pin,
+    editor,
+    overlay::{self, Frame, Layer},
+    pin,
     selection::{self, RegionDetector, SelectionCursor},
 };
 use editor::Mark as NativeMark;
@@ -20,6 +22,7 @@ use std::{
 
 slint::include_modules!();
 
+mod pin_window;
 #[cfg(test)]
 mod ui_tests;
 
@@ -54,12 +57,12 @@ fn dispatch() -> Result<(), String> {
         cli::Command::Region => run_capture(false, None),
         cli::Command::Screen => run_capture(true, None),
         cli::Command::Pin(path) => pin::launch(&path, None),
-        cli::Command::PinSurface(path) => pin::run_surface(&path, None),
+        cli::Command::PinSurface(path) => pin_window::run(&path, None),
         cli::Command::OnOutput { command, name } => match *command {
             cli::Command::Region => run_capture(false, Some(name)),
             cli::Command::Screen => run_capture(true, Some(name)),
             cli::Command::Pin(path) => pin::launch(&path, Some(name)),
-            cli::Command::PinSurface(path) => pin::run_surface(&path, Some(name)),
+            cli::Command::PinSurface(path) => pin_window::run(&path, Some(name)),
             _ => unreachable!(),
         },
         cli::Command::ListOutputs => {
@@ -109,7 +112,7 @@ fn run_editor(
     }
 
     let base_image = Arc::new(base);
-    overlay::select_backend(&output)?;
+    overlay::select_backend(Frame::from(&output), Layer::Editor)?;
     let app = AppWindow::new().map_err(|error| error.to_string())?;
     // 窗口创建前 Slint 还不知道缩放比例，物理尺寸会被当成逻辑尺寸，
     // Retina 屏上窗口就会大一倍并被系统裁小，所以这里用屏幕的点尺寸。
@@ -125,7 +128,7 @@ fn run_editor(
         slint::spawn_local(async move {
             let Some(app) = weak.upgrade() else { return };
             if let Ok(window) = app.window().winit_window().await {
-                overlay::raise(&window, &output);
+                overlay::raise(&window, Frame::from(&output), Layer::Editor);
             }
         })
         .map_err(|error| error.to_string())?;
@@ -496,10 +499,6 @@ fn make_pin_action(
     let source = source.to_path_buf();
     let committed = committed.clone();
     move || {
-        if !pin::SUPPORTED {
-            capture::notify("macOS 版暂未实现贴图");
-            return;
-        }
         let Some(app) = weak.upgrade() else { return };
         let output = output_path();
         let selection = (app.get_sx(), app.get_sy(), app.get_sw(), app.get_sh());

@@ -9,7 +9,8 @@ Babry: https://github.com/kregonia/babry ，作者 kregonia，以 Apache License
 - 删除 src/compositor.rs（niri / Hyprland IPC），新增 src/display.rs（NSScreen）。
 - 重写 src/capture.rs：grim 改为 screencapture，wl-copy 改为 NSPasteboard，
   notify-send 改为 osascript。
-- 重写 src/pin.rs：移除 Wayland layer-shell 贴图，macOS 版待实现。
+- 重写贴图：移除 Wayland layer-shell 实现，改用浮动层级的无边框窗口
+  （src/pin.rs、新增 src/pin_window.rs 与 ui/pin.slint）。
 - 新增 src/overlay.rs：铺满屏幕、盖住菜单栏的无边框编辑窗口。
 - 修改 src/editor.rs：标注字体改用 macOS 系统字体。
 - 修改 src/main.rs、src/lib.rs、Cargo.toml、README.md 以适配上述变化。

@@ -1,5 +1,7 @@
 // 截图编辑界面：负责选区交互、工具栏和文字输入，图像检测与标注渲染通过回调交给 Rust。
 import { ComboBox, HorizontalBox, Slider, VerticalBox } from "std-widgets.slint";
+// 贴图窗口在单独的文件里；build.rs 只编译本文件，所以在这里一并导出。
+export { PinWindow } from "pin.slint";
 
 // 通用图标按钮，供撤销、保存、贴图等操作复用。
 component IconButton inherits Rectangle {

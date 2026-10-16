@@ -34,7 +34,7 @@ CV 智能选区、标注渲染、撤销历史、命令行解析和 Slint 界面�
 | 全屏覆盖窗口 | ✅ | 无边框窗口盖住菜单栏和 Dock，已实机验证 |
 | Babry.app 与 DMG | ✅ | 通用版本；未经 Apple 公证，首次打开需手动允许 |
 | 多显示器 | 🧪 | 截取鼠标所在的屏幕，或用 `--output` 指定 |
-| 贴图 | ❌ | 计划用置顶的 `NSPanel` 实现 |
+| 贴图 | ✅ | 浮在普通窗口之上，可移动、缩放、调整大小，可同时钉多张 |
 | 全局快捷键、菜单栏常驻 | ❌ | 计划中；目前用 Raycast 绑定，见下文 |
 | ScreenCaptureKit | ❌ | 目前调用系统的 `screencapture` |
 
@@ -109,6 +109,17 @@ Babry 还没有内置全局快捷键。上游在 niri 里用 `binds` 绑定，ma
 
 Slint 在 macOS 上把 `Control` 映射为 `⌘`，所以界面文件里的快捷键不用改。
 
+### 贴图
+
+点击工具栏的图钉，选区会保存到 `~/Pictures` 并钉在屏幕上；截图窗口关闭后贴图仍然保留。也可以把已有图片钉上去：`open -a Babry --args --pin /图片的/绝对路径.png`。
+
+| 操作 | 效果 |
+| --- | --- |
+| 左键拖动 | 移动贴图 |
+| 拖动边或角 | 调整大小，最小 64 点 |
+| 滚轮 | 以中心缩放 |
+| 右键或 `Esc` | 关闭这张贴图 |
+
 ## 字体
 
 文字标注依次尝试：`BABRY_FONT` 环境变量、冬青黑体（Hiragino Sans GB）、华文黑体（STHeiti）、Arial Unicode、Helvetica。
@@ -127,14 +138,15 @@ export BABRY_FONT_INDEX=0   # .ttc 字体集合中的索引
 | `notify-send` | `osascript` 通知 | `src/capture.rs` |
 | niri / Hyprland IPC | `NSScreen` | `src/display.rs` |
 | niri `open-fullscreen` 窗口规则 | 无边框窗口，层级高于菜单栏 | `src/overlay.rs` |
-| layer-shell 贴图 | 待实现 | `src/pin.rs` |
+| layer-shell 贴图 | 浮动层级的无边框窗口，每张贴图一个进程 | `src/pin.rs`、`src/pin_window.rs`、`ui/pin.slint` |
 | `/usr/share/fonts`、`fc-match` | macOS 系统字体 | `src/editor.rs` |
 
 ## 路线图
 
-- [ ] P1：实机验证覆盖窗口、多屏和 Retina；处理焦点和输入法问题
-- [ ] P2：菜单栏常驻、全局快捷键、`NSPanel` 贴图窗口
-- [ ] P3：换成 ScreenCaptureKit；打包 `.app`，签名和公证；用窗口边框辅助 CV 吸附
+- [x] 覆盖窗口、Retina、贴图、DMG 打包
+- [ ] 外接显示器实测
+- [ ] 通知改用 `UNUserNotificationCenter`，来源显示为 Babry
+- [ ] 换成 ScreenCaptureKit；签名和公证；用窗口边框辅助 CV 吸附
 
 ## 开发
 
