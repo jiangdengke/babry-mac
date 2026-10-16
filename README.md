@@ -33,7 +33,7 @@ CV 智能选区、标注渲染、撤销历史、命令行解析和 Slint 界面�
 | 全屏覆盖窗口 | 🧪 | 无边框窗口盖住菜单栏和 Dock，需要实机验证 |
 | 多显示器 | 🧪 | 截取鼠标所在的屏幕，或用 `--output` 指定 |
 | 贴图 | ❌ | 计划用置顶的 `NSPanel` 实现 |
-| 全局快捷键、菜单栏常驻 | ❌ | 计划中；目前可以用 Raycast、快捷指令或 skhd 绑定 |
+| 全局快捷键、菜单栏常驻 | ❌ | 计划中；目前用 Raycast 绑定，见下文 |
 | ScreenCaptureKit、.app 打包 | ❌ | 目前调用系统的 `screencapture` |
 
 ## 构建与运行
@@ -57,6 +57,22 @@ babry --list-outputs   # 列出显示器名称、位置和缩放
 babry --debug-selection screenshot.png /tmp/babry-cv-debug  # 离线检查 CV 选区
 babry --help
 ```
+
+## 绑定快捷键
+
+babry 还没有内置全局快捷键。上游在 niri 里用 `binds` 绑定，macOS 上可以用 [Raycast](https://www.raycast.com/) 的 Script Command 代替：
+
+1. 运行 `cargo install --path .`，把 `babry` 装到 `~/.cargo/bin`。
+2. 打开 Raycast 设置 → Extensions → `+` → Add Script Directory，选择本仓库的 `scripts/raycast`。
+3. 在列表里找到“Babry 智能截图”和“Babry 全屏截图”，分别点 Hotkey 设置快捷键。
+4. 第一次按快捷键时，在“录屏与系统录音”里允许 Raycast，然后退出并重新打开 Raycast。
+
+| 上游 niri 绑定 | 脚本 | 建议的 Mac 快捷键 |
+| --- | --- | --- |
+| `Mod+Shift+S` → `babry` | `babry-region.sh` | `⌥⇧S` |
+| `Mod+Shift+F` → `babry --screen` | `babry-screen.sh` | `⌥⇧F` |
+
+避开 `⌘⇧3/4/5`（系统截图）和 `⌘⇧S`（很多应用的“另存为”）。脚本不读取 `~/.zshrc`，需要调试记录时，取消脚本里 `BABRY_DEBUG_DIR` 那一行的注释。
 
 ## 交互方式
 
