@@ -88,6 +88,17 @@ component ColorSwatch inherits Rectangle {
 // 导出给 Rust 控制器的主窗口，统一管理选区阶段与标注阶段。
 export component AppWindow inherits Window {
     title: "Babry";
+    // macOS 没有 niri 的全屏窗口规则；Slint 每次同步属性都会按它设置边框，
+    // 有标题栏时系统还会把窗口挤到菜单栏下方。
+    no-frame: true;
+    // 目标屏幕的逻辑尺寸，由 Rust 设置。最小和最大尺寸相同时，Slint 把窗口设为不可缩放；
+    // 可缩放的窗口高于屏幕可用区域时，会被 AppKit 裁到菜单栏以下。为 0 时不限制，供测试使用。
+    in property <length> screen-width: 0px;
+    in property <length> screen-height: 0px;
+    min-width: root.screen-width;
+    min-height: root.screen-height;
+    max-width: root.screen-width > 0 ? root.screen-width : 100000px;
+    max-height: root.screen-height > 0 ? root.screen-height : 100000px;
     background: black;
     // 默认将键盘焦点交给快捷键区域；文字输入框创建后会主动获取焦点。
     forward-focus: keyboard;

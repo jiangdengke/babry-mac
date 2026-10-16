@@ -3,6 +3,17 @@ use std::{
     path::Path,
     process::{Command, Stdio},
 };
+use tempfile::NamedTempFile;
+
+/// 截图用的临时文件。screencapture 拒绝写入以 `.` 开头的隐藏文件，
+/// 而 tempfile 默认前缀是 `.tmp`，所以必须换成可见前缀。
+pub fn temp_png() -> Result<NamedTempFile, String> {
+    tempfile::Builder::new()
+        .prefix("babry-")
+        .suffix(".png")
+        .tempfile()
+        .map_err(|error| error.to_string())
+}
 
 // 第一版用系统自带的 screencapture，按屏幕的全局矩形截取，Retina 屏输出原始像素。
 // 之后换成 ScreenCaptureKit，可以省掉子进程并拿到更多控制。
@@ -10,14 +21,18 @@ pub fn capture(path: &Path, output: &OutputInfo) -> Result<(), String> {
     let result = capture_command(path, output)
         .output()
         .map_err(|e| format!("无法启动 screencapture: {e}"))?;
+    // 写入失败时 screencapture 仍可能返回 0，所以同时检查文件内容。
     if result.status.success() && path.metadata().is_ok_and(|meta| meta.len() > 0) {
         return Ok(());
     }
     let stderr = String::from_utf8_lossy(&result.stderr);
-    Err(format!(
-        "截屏失败: {}\n请在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许启动 babry 的终端或应用，然后重试。",
-        stderr.trim()
-    ))
+    let mut message = format!("截屏失败: {}", stderr.trim());
+    if stderr.contains("could not create image") {
+        message.push_str(
+            "\n请在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许启动 babry 的终端或应用，然后重试。",
+        );
+    }
+    Err(message)
 }
 
 fn capture_command(path: &Path, output: &OutputInfo) -> Command {
@@ -103,6 +118,14 @@ mod tests {
                 "capture.png"
             ]
         );
+    }
+
+    #[test]
+    fn temp_capture_file_is_not_hidden() {
+        let temp = temp_png().unwrap();
+        let name = temp.path().file_name().unwrap().to_string_lossy();
+        assert!(!name.starts_with('.'), "screencapture 拒绝隐藏文件: {name}");
+        assert!(name.ends_with(".png"));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use super::*;
 use imageproc::{drawing::draw_filled_rect_mut, rect::Rect};
 use slint::{
-    LogicalPosition, Rgb8Pixel,
+    LogicalPosition, PhysicalSize, Rgb8Pixel,
     platform::{
         Platform, PointerEventButton, WindowAdapter, WindowEvent,
         software_renderer::{MinimalSoftwareWindow, RepaintBufferType},

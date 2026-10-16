@@ -8,7 +8,7 @@ use babry::{
 };
 use editor::Mark as NativeMark;
 use image::{Rgba, RgbaImage};
-use slint::{ComponentHandle, PhysicalSize, SharedPixelBuffer};
+use slint::{ComponentHandle, LogicalSize, SharedPixelBuffer};
 use std::{
     cell::RefCell,
     path::{Path, PathBuf},
@@ -86,10 +86,7 @@ fn run_capture(direct_edit: bool, output: Option<String>) -> Result<(), String> 
     // 在编辑器抢占焦点之前确定输出，默认启动也必须只捕获这一块屏幕。
     let outputs = display::outputs()?;
     let selected = display::select_output(&outputs, output.as_deref())?;
-    let temp = tempfile::Builder::new()
-        .suffix(".png")
-        .tempfile()
-        .map_err(|error| error.to_string())?;
+    let temp = capture::temp_png()?;
     let source = temp.path().to_path_buf();
 
     capture::capture(&source, &selected)?;
@@ -107,8 +104,12 @@ fn run_editor(source: PathBuf, direct_edit: bool, output: OutputInfo) -> Result<
     let base_image = Arc::new(base);
     overlay::select_backend(&output)?;
     let app = AppWindow::new().map_err(|error| error.to_string())?;
+    // 窗口创建前 Slint 还不知道缩放比例，物理尺寸会被当成逻辑尺寸，
+    // Retina 屏上窗口就会大一倍并被系统裁小，所以这里用屏幕的点尺寸。
     app.window()
-        .set_size(PhysicalSize::new(base_image.width(), base_image.height()));
+        .set_size(LogicalSize::new(output.width as f32, output.height as f32));
+    app.set_screen_width(output.width as f32);
+    app.set_screen_height(output.height as f32);
     {
         // winit 窗口在事件循环启动后才创建，所以等它出现再提高层级。
         use slint::winit_030::WinitWindowAccessor;
