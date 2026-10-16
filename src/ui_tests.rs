@@ -89,5 +89,52 @@ fn wheel_selected_parent_is_committed_by_click_and_drag_still_works() {
     assert!((app.get_sy() - 60.0 / 480.0).abs() < 0.001);
     assert!((app.get_sw() - 230.0 / 640.0).abs() < 0.001);
     assert!((app.get_sh() - 150.0 / 480.0).abs() < 0.001);
+
+    // 编辑阶段拖动右边框，只改变宽度。
+    drag(&app, (290.0, 135.0), (350.0, 135.0));
+    assert_selection(&app, (60.0, 60.0, 290.0, 150.0));
+    // 拖动左上角，同时移动左边和上边。
+    drag(&app, (60.0, 60.0), (40.0, 30.0));
+    assert_selection(&app, (40.0, 30.0, 310.0, 180.0));
+    // 在选区内部拖动是在画标注，不改变选区。
+    drag(&app, (200.0, 135.0), (220.0, 150.0));
+    assert_selection(&app, (40.0, 30.0, 310.0, 180.0));
+    // 左边拖过右边时停在最小宽度 8px，不会翻转。
+    drag(&app, (40.0, 120.0), (500.0, 120.0));
+    assert_selection(&app, (342.0, 30.0, 8.0, 180.0));
     app.hide().unwrap();
+}
+
+fn drag(app: &AppWindow, from: (f32, f32), to: (f32, f32)) {
+    let from = LogicalPosition::new(from.0, from.1);
+    let to = LogicalPosition::new(to.0, to.1);
+    let window = app.window();
+    window.dispatch_event(WindowEvent::PointerMoved { position: from });
+    window.dispatch_event(WindowEvent::PointerPressed {
+        position: from,
+        button: PointerEventButton::Left,
+    });
+    window.dispatch_event(WindowEvent::PointerMoved { position: to });
+    window.dispatch_event(WindowEvent::PointerReleased {
+        position: to,
+        button: PointerEventButton::Left,
+    });
+}
+
+// 期望值是 640x480 窗口中的逻辑像素 (x, y, 宽, 高)。
+fn assert_selection(app: &AppWindow, expected: (f32, f32, f32, f32)) {
+    let actual = (
+        app.get_sx() * 640.0,
+        app.get_sy() * 480.0,
+        app.get_sw() * 640.0,
+        app.get_sh() * 480.0,
+    );
+    let close = |a: f32, b: f32| (a - b).abs() < 0.5;
+    assert!(
+        close(actual.0, expected.0)
+            && close(actual.1, expected.1)
+            && close(actual.2, expected.2)
+            && close(actual.3, expected.3),
+        "selection {actual:?}, expected {expected:?}"
+    );
 }

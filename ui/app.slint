@@ -143,6 +143,59 @@ export component AppWindow inherits Window {
     // 过滤接近零尺寸的区域，只有宽高均超过阈值时才能确认选区。
     property <bool> has-selection: root.sw > 0.001 && root.sh > 0.001;
 
+    // 编辑阶段拖动边框或角点调整选区。抓取位置编号：
+    // 0 无；1 左；2 右；3 上；4 下；5 左上；6 右上；7 左下；8 右下。
+    property <length> grip-distance: 8px; // 边框内外各 8px 都算抓到边框。
+    property <int> hover-grip: 0; // 悬停位置，只用于切换鼠标指针。
+    property <int> resize-grip: 0; // 正在拖动的边或角。
+    property <float> resize-left: 0; // 按下时选区的四条边，拖动期间保持不变的边从这里取值。
+    property <float> resize-top: 0;
+    property <float> resize-right: 0;
+    property <float> resize-bottom: 0;
+    property <float> min-selection-width: 8px / max(1px, root.width); // 选区缩小的下限。
+    property <float> min-selection-height: 8px / max(1px, root.height);
+
+    pure function moves-left(grip: int) -> bool { return grip == 1 || grip == 5 || grip == 7; }
+    pure function moves-right(grip: int) -> bool { return grip == 2 || grip == 6 || grip == 8; }
+    pure function moves-top(grip: int) -> bool { return grip == 3 || grip == 5 || grip == 6; }
+    pure function moves-bottom(grip: int) -> bool { return grip == 4 || grip == 7 || grip == 8; }
+
+    // 返回指针所在的边或角；选区很小时两条边的抓取带会重叠，取较近的一条。
+    pure function grip-at(x: length, y: length) -> int {
+        if (root.phase != 2 || root.text-editing || root.drawing || !root.has-selection) {
+            return 0;
+        }
+        let left = root.sx * root.width;
+        let right = (root.sx + root.sw) * root.width;
+        let top = root.sy * root.height;
+        let bottom = (root.sy + root.sh) * root.height;
+        let d = root.grip-distance;
+        if (x < left - d || x > right + d || y < top - d || y > bottom + d) {
+            return 0;
+        }
+        let near-left = abs(x - left) <= d && abs(x - left) <= abs(x - right);
+        let near-right = abs(x - right) <= d && !near-left;
+        let near-top = abs(y - top) <= d && abs(y - top) <= abs(y - bottom);
+        let near-bottom = abs(y - bottom) <= d && !near-top;
+        if (near-top && near-left) { return 5; }
+        if (near-top && near-right) { return 6; }
+        if (near-bottom && near-left) { return 7; }
+        if (near-bottom && near-right) { return 8; }
+        if (near-left) { return 1; }
+        if (near-right) { return 2; }
+        if (near-top) { return 3; }
+        if (near-bottom) { return 4; }
+        return 0;
+    }
+
+    pure function grip-cursor(grip: int) -> MouseCursor {
+        if (grip == 1 || grip == 2) { return MouseCursor.ew-resize; }
+        if (grip == 3 || grip == 4) { return MouseCursor.ns-resize; }
+        if (grip == 5 || grip == 8) { return MouseCursor.nwse-resize; }
+        if (grip == 6 || grip == 7) { return MouseCursor.nesw-resize; }
+        return MouseCursor.default;
+    }
+
     // 将鼠标的归一化坐标传给 Rust 的 CV 检测器，命中结果写回 sx、sy、sw、sh。
     callback hover-selection(float, float);
     callback cycle-selection(float, float, int); // 滚轮向上扩大到父区域，向下缩小到子区域。
@@ -298,7 +351,7 @@ export component AppWindow inherits Window {
         z: 4;
         animate x, y, width, height { duration: 45ms; easing: ease-out; }
     }
-    // 四个圆点依次对应左上、右上、左下、右下，仅用于显示角点位置。
+    // 四个圆点依次对应左上、右上、左下、右下；编辑阶段可以拖动它们调整选区。
     for handle in [0, 1, 2, 3]: Rectangle {
         x: (handle == 1 || handle == 3 ? (root.sx + root.sw) * root.width : root.sx * root.width) - 4px;
         y: (handle >= 2 ? (root.sy + root.sh) * root.height : root.sy * root.height) - 4px;
@@ -348,6 +401,7 @@ export component AppWindow inherits Window {
     // 全窗口输入区域统一处理选区与绘制；工具栏和文字面板使用更高图层接收自身操作。
     touch := TouchArea {
         z: 10;
+        mouse-cursor: root.grip-cursor(root.resize-grip != 0 ? root.resize-grip : root.hover-grip);
         // moved 仅在鼠标按住或手指保持接触时触发，悬停移动由 pointer-event 处理。
         moved => {
             if (root.phase == 0) {
@@ -362,6 +416,19 @@ export component AppWindow inherits Window {
                     root.sw = abs(root.dx - root.ax);
                     root.sh = abs(root.dy - root.ay);
                 }
+            }
+            // 拖动边框时只移动抓住的边，另一侧保持按下时的位置，并保留最小尺寸。
+            if (self.pressed && root.phase == 2 && root.resize-grip != 0) {
+                let x = clamp(self.mouse-x / root.width, 0, 1);
+                let y = clamp(self.mouse-y / root.height, 0, 1);
+                let left = root.moves-left(root.resize-grip) ? min(x, root.resize-right - root.min-selection-width) : root.resize-left;
+                let right = root.moves-right(root.resize-grip) ? max(x, root.resize-left + root.min-selection-width) : root.resize-right;
+                let top = root.moves-top(root.resize-grip) ? min(y, root.resize-bottom - root.min-selection-height) : root.resize-top;
+                let bottom = root.moves-bottom(root.resize-grip) ? max(y, root.resize-top + root.min-selection-height) : root.resize-bottom;
+                root.sx = left;
+                root.sy = top;
+                root.sw = right - left;
+                root.sh = bottom - top;
             }
             // 绘制时将轨迹钳制在已确认选区内，文字输入期间暂停画布绘制。
             if (self.pressed && root.phase == 2 && root.drawing && !root.text-editing) {
@@ -389,6 +456,9 @@ export component AppWindow inherits Window {
                 root.selection-pointer-known = true;
                 root.hover-selection(root.dx, root.dy);
             }
+            if (event.kind == PointerEventKind.move && root.phase == 2 && !self.pressed) {
+                root.hover-grip = root.grip-at(self.mouse-x, self.mouse-y);
+            }
             if (event.kind == PointerEventKind.down && root.phase == 2 && root.text-editing) {
                 // 文字输入框和工具栏位于更高图层；能到达画布的按下事件表示点击了外部。
                 root.finish-text-input();
@@ -402,6 +472,13 @@ export component AppWindow inherits Window {
                     // 按下时刷新一次候选，单击后可直接确认，不清空候选框尺寸。
                     root.selecting = false;
                     root.hover-selection(root.ax, root.ay);
+                } else if (root.grip-at(self.mouse-x, self.mouse-y) != 0) {
+                    // 边框附近优先调整选区，而不是在边缘开始一笔标注。
+                    root.resize-grip = root.grip-at(self.mouse-x, self.mouse-y);
+                    root.resize-left = root.sx;
+                    root.resize-top = root.sy;
+                    root.resize-right = root.sx + root.sw;
+                    root.resize-bottom = root.sy + root.sh;
                 } else if (root.phase == 2 && !root.text-editing && root.ax >= root.sx && root.ax <= root.sx + root.sw && root.ay >= root.sy && root.ay <= root.sy + root.sh) {
                     // 仅允许在选区内开始标注；文字工具立即创建透明原位输入框。
                     if (root.tool == 10) {
@@ -423,7 +500,10 @@ export component AppWindow inherits Window {
                 }
             }
             if (event.kind == PointerEventKind.up) {
-                if (root.phase == 0) {
+                if (root.resize-grip != 0) {
+                    root.resize-grip = 0;
+                    root.hover-grip = root.grip-at(self.mouse-x, self.mouse-y);
+                } else if (root.phase == 0) {
                     // 智能单击与手动拖框共用确认流程，有效选区进入编辑阶段。
                     root.selecting = false;
                     if (root.has-selection) {
