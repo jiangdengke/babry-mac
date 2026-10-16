@@ -115,6 +115,15 @@ cargo clippy --all-targets -- -D warnings
 cargo test --all-targets
 ```
 
+### 复现吸附问题
+
+设置 `BABRY_DEBUG_DIR` 后，每次截图都会在该目录保存原始全屏图（`babry-debug-时间.png`）和选区记录（`babry-debug-时间.log`）。记录包括悬停、滚轮切换和最终选区。
+
+```bash
+BABRY_DEBUG_DIR=~/babry-debug babry
+babry --debug-selection ~/babry-debug/babry-debug-时间.png /tmp/cv   # 离线查看全部候选
+```
+
 ## License
 
 [Apache License 2.0](LICENSE)。上游版权归 Babry 的作者所有，详见 [NOTICE](NOTICE)。

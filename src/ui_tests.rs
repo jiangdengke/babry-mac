@@ -45,7 +45,7 @@ fn wheel_selected_parent_is_committed_by_click_and_drag_still_works() {
         .dispatch_event(WindowEvent::PointerMoved { position });
     assert_eq!(app.get_sw(), 0.0);
     app.set_selection_loading(false);
-    install_selection_detector(&app, detector);
+    install_selection_detector(&app, detector, None);
     // 后台结果到达时不需要再次移动鼠标就能显示候选。
     assert!((app.get_sw() - 140.0 / 640.0).abs() < 0.005);
     app.window().dispatch_event(WindowEvent::PointerScrolled {
@@ -77,7 +77,7 @@ fn wheel_selected_parent_is_committed_by_click_and_drag_still_works() {
     });
     app.window()
         .dispatch_event(WindowEvent::PointerMoved { position: end });
-    install_selection_detector(&app, RegionDetector::new(&image));
+    install_selection_detector(&app, RegionDetector::new(&image), None);
     // 结果刷新不会覆盖鼠标按住期间已经拖出的手动选区。
     assert!((app.get_sw() - 230.0 / 640.0).abs() < 0.001);
     app.window().dispatch_event(WindowEvent::PointerReleased {

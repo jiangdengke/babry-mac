@@ -1,6 +1,7 @@
 pub mod capture;
 pub mod cli;
 pub mod core;
+pub mod debug_log;
 pub mod display;
 pub mod editor;
 pub mod overlay;

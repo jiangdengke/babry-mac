@@ -2,6 +2,7 @@ use ab_glyph::Font;
 use babry::{
     capture, cli,
     core::History,
+    debug_log::DebugLog,
     display::{self, OutputInfo},
     editor, overlay, pin,
     selection::{self, RegionDetector, SelectionCursor},
@@ -90,10 +91,16 @@ fn run_capture(direct_edit: bool, output: Option<String>) -> Result<(), String> 
     let source = temp.path().to_path_buf();
 
     capture::capture(&source, &selected)?;
-    run_editor(source, direct_edit, selected)
+    let debug = DebugLog::from_env(&source, &selected);
+    run_editor(source, direct_edit, selected, debug)
 }
 
-fn run_editor(source: PathBuf, direct_edit: bool, output: OutputInfo) -> Result<(), String> {
+fn run_editor(
+    source: PathBuf,
+    direct_edit: bool,
+    output: OutputInfo,
+    debug: Option<DebugLog>,
+) -> Result<(), String> {
     let base = image::open(&source)
         .map_err(|error| error.to_string())?
         .to_rgba8();
@@ -140,6 +147,7 @@ fn run_editor(source: PathBuf, direct_edit: bool, output: OutputInfo) -> Result<
         app.set_selection_loading(true);
         let weak = app.as_weak();
         let snapshot = base_image.clone();
+        let debug = debug.clone();
         // 与界面共享原图，不为工作线程复制整屏；分析期间仍可手动拖框。
         std::thread::Builder::new()
             .name("babry-selection".into())
@@ -148,7 +156,7 @@ fn run_editor(source: PathBuf, direct_edit: bool, output: OutputInfo) -> Result<
                 let _ = weak.upgrade_in_event_loop(move |app| {
                     app.set_selection_loading(false);
                     if app.get_phase() == 0 {
-                        install_selection_detector(&app, detector);
+                        install_selection_detector(&app, detector, debug);
                     }
                 });
             })
@@ -384,24 +392,46 @@ fn run_editor(source: PathBuf, direct_edit: bool, output: OutputInfo) -> Result<
         });
     }
 
-    app.run().map_err(|error| error.to_string())
+    let result = app.run().map_err(|error| error.to_string());
+    if let Some(log) = &debug {
+        log.line(format_args!(
+            "final phase {} selection {:.4} {:.4} {:.4} {:.4}",
+            app.get_phase(),
+            app.get_sx(),
+            app.get_sy(),
+            app.get_sw(),
+            app.get_sh()
+        ));
+    }
+    result
 }
 
-fn install_selection_detector(app: &AppWindow, detector: RegionDetector) {
+fn install_selection_detector(app: &AppWindow, detector: RegionDetector, debug: Option<DebugLog>) {
     let detector = Rc::new(detector);
     let cursor = Rc::new(RefCell::new(SelectionCursor::default()));
     let weak = app.as_weak();
     let hover_detector = detector.clone();
     let hover_cursor = cursor.clone();
+    let hover_debug = debug.clone();
+    // 悬停每次移动都会触发，只在选区变化时记录。
+    let last_logged = std::cell::Cell::new(None);
     app.on_hover_selection(move |x, y| {
         let Some(app) = weak.upgrade() else { return };
         let region = hover_cursor.borrow_mut().hover(&hover_detector, x, y);
+        if let Some(log) = &hover_debug
+            && last_logged.replace(Some(region)) != Some(region)
+        {
+            log.hover(x, y, region);
+        }
         set_selection(&app, &hover_detector, region);
     });
     let weak = app.as_weak();
     app.on_cycle_selection(move |x, y, direction| {
         let Some(app) = weak.upgrade() else { return };
         let region = cursor.borrow_mut().step(&detector, x, y, direction);
+        if let Some(log) = &debug {
+            log.wheel(x, y, direction, region);
+        }
         set_selection(&app, &detector, region);
     });
     // 如果指针已移动而尚未按下，结果到达时立即更新；不覆盖正在拖动的选区。
