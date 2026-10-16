@@ -2,7 +2,8 @@ use ab_glyph::Font;
 use babry::{
     capture, cli,
     core::History,
-    editor, pin,
+    display::{self, OutputInfo},
+    editor, overlay, pin,
     selection::{self, RegionDetector, SelectionCursor},
 };
 use editor::Mark as NativeMark;
@@ -61,7 +62,7 @@ fn dispatch() -> Result<(), String> {
             _ => unreachable!(),
         },
         cli::Command::ListOutputs => {
-            for output in babry::compositor::outputs()? {
+            for output in display::outputs()? {
                 println!(
                     "{}: {}x{} at ({}, {}) scale {}{}",
                     output.name,
@@ -83,19 +84,19 @@ fn dispatch() -> Result<(), String> {
 
 fn run_capture(direct_edit: bool, output: Option<String>) -> Result<(), String> {
     // 在编辑器抢占焦点之前确定输出，默认启动也必须只捕获这一块屏幕。
-    let outputs = babry::compositor::outputs()?;
-    let selected = babry::compositor::select_output(&outputs, output.as_deref())?;
+    let outputs = display::outputs()?;
+    let selected = display::select_output(&outputs, output.as_deref())?;
     let temp = tempfile::Builder::new()
         .suffix(".png")
         .tempfile()
         .map_err(|error| error.to_string())?;
     let source = temp.path().to_path_buf();
 
-    capture::capture(&source, &selected.name)?;
-    run_editor(source, direct_edit, selected.name)
+    capture::capture(&source, &selected)?;
+    run_editor(source, direct_edit, selected)
 }
 
-fn run_editor(source: PathBuf, direct_edit: bool, output_name: String) -> Result<(), String> {
+fn run_editor(source: PathBuf, direct_edit: bool, output: OutputInfo) -> Result<(), String> {
     let base = image::open(&source)
         .map_err(|error| error.to_string())?
         .to_rgba8();
@@ -104,10 +105,23 @@ fn run_editor(source: PathBuf, direct_edit: bool, output_name: String) -> Result
     }
 
     let base_image = Arc::new(base);
+    overlay::select_backend(&output)?;
     let app = AppWindow::new().map_err(|error| error.to_string())?;
-    slint::set_xdg_app_id("babry").map_err(|error| error.to_string())?;
     app.window()
         .set_size(PhysicalSize::new(base_image.width(), base_image.height()));
+    {
+        // winit 窗口在事件循环启动后才创建，所以等它出现再提高层级。
+        use slint::winit_030::WinitWindowAccessor;
+        let weak = app.as_weak();
+        let output = output.clone();
+        slint::spawn_local(async move {
+            let Some(app) = weak.upgrade() else { return };
+            if let Ok(window) = app.window().winit_window().await {
+                overlay::raise(&window, &output);
+            }
+        })
+        .map_err(|error| error.to_string())?;
+    }
 
     let base_pixels = image_to_slint(base_image.as_ref());
     app.set_screenshot(base_pixels.clone());
@@ -354,7 +368,7 @@ fn run_editor(source: PathBuf, direct_edit: bool, output_name: String) -> Result
 
     let save_action = make_export_action(&app, &source, &committed, base_image.clone(), false);
     let copy_action = make_export_action(&app, &source, &committed, base_image.clone(), true);
-    let pin_action = make_pin_action(&app, &source, &committed, base_image, output_name);
+    let pin_action = make_pin_action(&app, &source, &committed, base_image, output.name);
 
     app.on_save(save_action);
     app.on_copy(copy_action);
@@ -451,6 +465,10 @@ fn make_pin_action(
     let source = source.to_path_buf();
     let committed = committed.clone();
     move || {
+        if !pin::SUPPORTED {
+            capture::notify("macOS 版暂未实现贴图");
+            return;
+        }
         let Some(app) = weak.upgrade() else { return };
         let output = output_path();
         let selection = (app.get_sx(), app.get_sy(), app.get_sw(), app.get_sh());

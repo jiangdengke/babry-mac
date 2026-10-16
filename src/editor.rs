@@ -7,7 +7,6 @@ use imageproc::drawing::{
 use imageproc::rect::Rect;
 use std::{
     path::{Path, PathBuf},
-    process::Command,
     sync::OnceLock,
 };
 
@@ -492,46 +491,17 @@ fn load_annotation_fonts() -> Vec<AnnotationFont> {
     if let Some(path) = std::env::var_os("BABRY_FONT") {
         candidates.push((PathBuf::from(path), default_index));
     }
+    // macOS 自带字体。苹方存放在系统资源目录，路径随版本变化，所以优先用冬青黑体。
     candidates.extend([
         (
-            PathBuf::from("/usr/share/fonts/wenquanyi/wqy-zenhei/wqy-zenhei.ttc"),
+            PathBuf::from("/System/Library/Fonts/Hiragino Sans GB.ttc"),
             0,
         ),
-        (
-            PathBuf::from("/usr/share/fonts/noto/NotoSansCJK-Regular.ttc"),
-            0,
-        ),
-        (
-            PathBuf::from("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
-            0,
-        ),
-        (PathBuf::from("/usr/share/fonts/TTF/DejaVuSans.ttf"), 0),
-        (
-            PathBuf::from("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-            0,
-        ),
-        (
-            PathBuf::from("/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf"),
-            0,
-        ),
-        (
-            PathBuf::from("/usr/share/fonts/liberation/LiberationSans-Regular.ttf"),
-            0,
-        ),
+        (PathBuf::from("/System/Library/Fonts/STHeiti Medium.ttc"), 0),
+        (PathBuf::from("/System/Library/Fonts/STHeiti Light.ttc"), 0),
+        (PathBuf::from("/Library/Fonts/Arial Unicode.ttf"), 0),
+        (PathBuf::from("/System/Library/Fonts/Helvetica.ttc"), 0),
     ]);
-
-    for pattern in [":charset=4e00", "sans-serif"] {
-        if let Ok(output) = Command::new("fc-match")
-            .args(["--format=%{file}", pattern])
-            .output()
-            && output.status.success()
-        {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                candidates.push((PathBuf::from(path), 0));
-            }
-        }
-    }
 
     let mut loaded = std::collections::HashSet::new();
     candidates
