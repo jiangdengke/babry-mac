@@ -1,0 +1,47 @@
+name: release
+
+# 推送 v* tag 时编译通用二进制并发布 Release，tag 必须与 Cargo.toml 的版本一致。
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Check tag matches Cargo.toml
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME 与 Cargo.toml 的版本 $version 不一致"
+            exit 1
+          fi
+
+      - name: Build universal package
+        run: scripts/package-macos.sh dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/babry-macos-universal.tar.gz \
+            dist/babry-macos-universal.tar.gz.sha256 \
+            --title "babry-mac $GITHUB_REF_NAME" \
+            --notes-file .github/release-notes.md

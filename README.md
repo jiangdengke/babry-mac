@@ -36,16 +36,28 @@ CV 智能选区、标注渲染、撤销历史、命令行解析和 Slint 界面�
 | 全局快捷键、菜单栏常驻 | ❌ | 计划中；目前用 Raycast 绑定，见下文 |
 | ScreenCaptureKit、.app 打包 | ❌ | 目前调用系统的 `screencapture` |
 
-## 构建与运行
+## 安装
+
+从 [Releases](https://github.com/jiangdengke/babry-mac/releases) 下载编译好的通用二进制，Apple 芯片和 Intel Mac 都能运行，不需要 Rust：
+
+```bash
+curl -fsSL https://github.com/jiangdengke/babry-mac/releases/latest/download/babry-macos-universal.tar.gz | tar -xz -C /tmp
+sudo install -m 755 /tmp/babry/babry /usr/local/bin/babry
+```
+
+用浏览器下载时，macOS 会给程序加上隔离标记，导致无法运行；解压后先运行 `xattr -d com.apple.quarantine babry/babry`。
+
+### 从源码构建
 
 需要 Rust 1.88 或更高版本（代码使用了 let chains）。
 
 ```bash
 git clone https://github.com/jiangdengke/babry-mac.git
 cd babry-mac
-cargo build --release --locked
-./target/release/babry
+cargo install --path . --locked   # 装到 ~/.cargo/bin/babry
 ```
+
+## 运行
 
 第一次截图时，macOS 会要求录屏权限。请在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许你使用的终端（Terminal、iTerm2、Ghostty 等），然后重启终端。
 
@@ -62,8 +74,8 @@ babry --help
 
 babry 还没有内置全局快捷键。上游在 niri 里用 `binds` 绑定，macOS 上可以用 [Raycast](https://www.raycast.com/) 的 Script Command 代替：
 
-1. 运行 `cargo install --path .`，把 `babry` 装到 `~/.cargo/bin`。
-2. 打开 Raycast 设置 → Extensions → `+` → Add Script Directory，选择本仓库的 `scripts/raycast`。
+1. 按上文安装 `babry`。脚本会在 `/usr/local/bin`、`~/.cargo/bin` 等常见位置查找它。
+2. 打开 Raycast 设置 → Extensions → `+` → Add Script Directory，选择本仓库的 `scripts/raycast`，或 Release 压缩包里的 `raycast` 目录。
 3. 在列表里找到“Babry 智能截图”和“Babry 全屏截图”，分别点 Hotkey 设置快捷键。
 4. 第一次按快捷键时，在“录屏与系统录音”里允许 Raycast，然后退出并重新打开 Raycast。
 
@@ -124,6 +136,8 @@ export BABRY_FONT_INDEX=0   # .ttc 字体集合中的索引
 - [ ] P3：换成 ScreenCaptureKit；打包 `.app`，签名和公证；用窗口边框辅助 CV 吸附
 
 ## 开发
+
+发布新版本：把 `Cargo.toml` 的版本改成新版本号并提交，再推送同名 tag，例如 `git tag v0.2.0 && git push origin v0.2.0`。`release` 工作流会编译通用二进制并创建 Release；本地可以用 `scripts/package-macos.sh` 试打包。
 
 ```bash
 cargo fmt --all
