@@ -16,7 +16,11 @@ pub fn parse<I>(args: I) -> Result<Command, String>
 where
     I: IntoIterator<Item = String>,
 {
-    let mut values: Vec<String> = args.into_iter().collect();
+    // 旧版 macOS 从 Finder 启动 App 时会附带 -psn_ 进程号参数，与命令无关。
+    let mut values: Vec<String> = args
+        .into_iter()
+        .filter(|arg| !arg.starts_with("-psn_"))
+        .collect();
     if let Some(index) = values.iter().position(|arg| arg == "--output") {
         if index + 1 >= values.len() {
             return Err("--output 需要显示器名称".into());
@@ -125,6 +129,15 @@ mod tests {
     #[test]
     fn defaults_to_region_capture() {
         assert_eq!(parse_args(&["babry"]), Ok(Command::Region));
+    }
+
+    #[test]
+    fn ignores_the_finder_process_serial_number() {
+        assert_eq!(parse_args(&["babry", "-psn_0_123456"]), Ok(Command::Region));
+        assert_eq!(
+            parse_args(&["babry", "-psn_0_1", "--screen"]),
+            Ok(Command::Screen)
+        );
     }
 
     #[test]

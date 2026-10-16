@@ -28,24 +28,22 @@ CV 智能选区、标注渲染、撤销历史、命令行解析和 Slint 界面�
 | --- | --- | --- |
 | CV 智能选区 | ✅ | 沿用上游，单测在 macOS 上通过 |
 | 标注、文字、马赛克/模糊 | ✅ | 文字默认使用系统自带的冬青黑体 |
+| 拖动边框调整选区 | ✅ | 进入标注后拖动四条边或四个角点 |
 | 保存 PNG | ✅ | 保存到 `~/Pictures/babry-时间.png` |
 | 复制到剪贴板 | ✅ | 写入 `NSPasteboard`，类型为 PNG |
-| 全屏覆盖窗口 | 🧪 | 无边框窗口盖住菜单栏和 Dock，需要实机验证 |
+| 全屏覆盖窗口 | ✅ | 无边框窗口盖住菜单栏和 Dock，已实机验证 |
+| Babry.app 与 DMG | ✅ | 通用版本；未经 Apple 公证，首次打开需手动允许 |
 | 多显示器 | 🧪 | 截取鼠标所在的屏幕，或用 `--output` 指定 |
 | 贴图 | ❌ | 计划用置顶的 `NSPanel` 实现 |
 | 全局快捷键、菜单栏常驻 | ❌ | 计划中；目前用 Raycast 绑定，见下文 |
-| ScreenCaptureKit、.app 打包 | ❌ | 目前调用系统的 `screencapture` |
+| ScreenCaptureKit | ❌ | 目前调用系统的 `screencapture` |
 
 ## 安装
 
-从 [Releases](https://github.com/jiangdengke/babry-mac/releases) 下载编译好的通用二进制，Apple 芯片和 Intel Mac 都能运行，不需要 Rust：
-
-```bash
-curl -fsSL https://github.com/jiangdengke/babry-mac/releases/latest/download/babry-macos-universal.tar.gz | tar -xz -C /tmp
-sudo install -m 755 /tmp/babry/babry /usr/local/bin/babry
-```
-
-用浏览器下载时，macOS 会给程序加上隔离标记，导致无法运行；解压后先运行 `xattr -d com.apple.quarantine babry/babry`。
+1. 从 [Releases](https://github.com/jiangdengke/babry-mac/releases/latest) 下载 `Babry-版本号.dmg` 并打开。Apple 芯片和 Intel Mac 都能运行。
+2. 把 Babry 拖到“应用程序”文件夹。
+3. 第一次打开时，macOS 会提示无法验证开发者，因为这个 App 没有经过 Apple 公证。到“系统设置 → 隐私与安全性”点“仍要打开”，或在终端运行 `xattr -dr com.apple.quarantine /Applications/Babry.app`。
+4. 第一次截图时，在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许 Babry，然后重新打开 Babry。每次更新版本后可能需要重新允许。
 
 ### 从源码构建
 
@@ -54,37 +52,40 @@ sudo install -m 755 /tmp/babry/babry /usr/local/bin/babry
 ```bash
 git clone https://github.com/jiangdengke/babry-mac.git
 cd babry-mac
-cargo install --path . --locked   # 装到 ~/.cargo/bin/babry
+scripts/package-macos.sh        # 生成 dist/Babry-版本号.dmg
+cargo run --release -- --screen # 开发时直接运行
 ```
 
 ## 运行
 
-第一次截图时，macOS 会要求录屏权限。请在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许你使用的终端（Terminal、iTerm2、Ghostty 等），然后重启终端。
+打开 Babry（双击、Spotlight、Launchpad 或 Raycast）就会立刻进入智能选区截图。需要参数时，用 `open` 传给 App：
 
 ```bash
-babry                  # CV 智能区域截图：悬停吸附，单击确认
-babry --screen         # 截取整个屏幕并直接进入编辑
-babry --output NAME    # 在指定显示器截图，可与 --screen 组合
-babry --list-outputs   # 列出显示器名称、位置和缩放
-babry --debug-selection screenshot.png /tmp/babry-cv-debug  # 离线检查 CV 选区
-babry --help
+open -a Babry                                 # CV 智能区域截图：悬停吸附，点击确认
+open -a Babry --args --screen                 # 截取整个屏幕并直接进入编辑
+open -a Babry --args --output NAME            # 在指定显示器截图，可与 --screen 组合
+/Applications/Babry.app/Contents/MacOS/babry --list-outputs   # 列出显示器名称、位置和缩放
+/Applications/Babry.app/Contents/MacOS/babry --help
 ```
+
+直接在终端运行 App 里的 `babry` 也可以，但这时录屏权限算在终端身上。
 
 ## 绑定快捷键
 
-babry 还没有内置全局快捷键。上游在 niri 里用 `binds` 绑定，macOS 上可以用 [Raycast](https://www.raycast.com/) 的 Script Command 代替：
+Babry 还没有内置全局快捷键。上游在 niri 里用 `binds` 绑定，macOS 上可以用 [Raycast](https://www.raycast.com/) 的 Script Command 代替：
 
-1. 按上文安装 `babry`。脚本会在 `/usr/local/bin`、`~/.cargo/bin` 等常见位置查找它。
-2. 打开 Raycast 设置 → Extensions → `+` → Add Script Directory，选择本仓库的 `scripts/raycast`，或 Release 压缩包里的 `raycast` 目录。
+1. 按上文从 DMG 安装 Babry。
+2. 打开 Raycast 设置 → Extensions → `+` → Add Script Directory，选择本仓库的 `scripts/raycast`。
 3. 在列表里找到“Babry 智能截图”和“Babry 全屏截图”，分别点 Hotkey 设置快捷键。
-4. 第一次按快捷键时，在“录屏与系统录音”里允许 Raycast，然后退出并重新打开 Raycast。
+
+脚本通过 `open -a Babry` 启动 App，所以录屏权限只需要给 Babry，不需要给 Raycast。
 
 | 上游 niri 绑定 | 脚本 | 建议的 Mac 快捷键 |
 | --- | --- | --- |
 | `Mod+Shift+S` → `babry` | `babry-region.sh` | `⌥⇧S` |
 | `Mod+Shift+F` → `babry --screen` | `babry-screen.sh` | `⌥⇧F` |
 
-避开 `⌘⇧3/4/5`（系统截图）和 `⌘⇧S`（很多应用的“另存为”）。脚本不读取 `~/.zshrc`，需要调试记录时，取消脚本里 `BABRY_DEBUG_DIR` 那一行的注释。
+避开 `⌘⇧3/4/5`（系统截图）和 `⌘⇧S`（很多应用的“另存为”）。
 
 ## 交互方式
 
@@ -137,7 +138,7 @@ export BABRY_FONT_INDEX=0   # .ttc 字体集合中的索引
 
 ## 开发
 
-发布新版本：把 `Cargo.toml` 的版本改成新版本号并提交，再推送同名 tag，例如 `git tag v0.2.0 && git push origin v0.2.0`。`release` 工作流会编译通用二进制并创建 Release；本地可以用 `scripts/package-macos.sh` 试打包。
+发布新版本：把 `Cargo.toml` 的版本改成新版本号并提交，再推送同名 tag，例如 `git tag v0.2.0 && git push origin v0.2.0`。`release` 工作流会编译通用版本的 Babry.app，打成 DMG 并创建 Release；本地可以用 `scripts/package-macos.sh` 试打包。App 图标由 `scripts/make-icon.sh` 从 logo 生成。
 
 ```bash
 cargo fmt --all
@@ -150,8 +151,8 @@ cargo test --all-targets
 设置 `BABRY_DEBUG_DIR` 后，每次截图都会在该目录保存原始全屏图（`babry-debug-时间.png`）和选区记录（`babry-debug-时间.log`）。记录包括悬停、滚轮切换和最终选区。
 
 ```bash
-BABRY_DEBUG_DIR=~/babry-debug babry
-babry --debug-selection ~/babry-debug/babry-debug-时间.png /tmp/cv   # 离线查看全部候选
+open -a Babry --env BABRY_DEBUG_DIR=$HOME/babry-debug
+/Applications/Babry.app/Contents/MacOS/babry --debug-selection ~/babry-debug/babry-debug-时间.png /tmp/cv   # 离线查看全部候选
 ```
 
 ## License

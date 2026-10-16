@@ -33,7 +33,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build universal package
+      - name: Build Babry.app and DMG
         run: scripts/package-macos.sh dist
 
       - name: Publish release
@@ -41,7 +41,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            dist/babry-macos-universal.tar.gz \
-            dist/babry-macos-universal.tar.gz.sha256 \
-            --title "babry-mac $GITHUB_REF_NAME" \
+            dist/Babry-*.dmg \
+            dist/Babry-*.dmg.sha256 \
+            --title "Babry $GITHUB_REF_NAME" \
             --notes-file .github/release-notes.md

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- scripts/package-macos.sh 打包时把 __VERSION__ 替换为 Cargo.toml 的版本。 -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Babry</string>
+	<key>CFBundleDisplayName</key>
+	<string>Babry</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.github.jiangdengke.babry</string>
+	<key>CFBundleVersion</key>
+	<string>__VERSION__</string>
+	<key>CFBundleShortVersionString</key>
+	<string>__VERSION__</string>
+	<key>CFBundleExecutable</key>
+	<string>babry</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<!-- 截图工具不需要 Dock 图标和菜单栏，与运行时的 Accessory 策略一致。 -->
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Apache-2.0。移植自 kregonia/babry。</string>
+</dict>
+</plist>
