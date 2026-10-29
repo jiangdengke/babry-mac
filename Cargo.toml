@@ -1,6 +1,6 @@
 [package]
 name = "babry-mac"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "Babry 的 macOS 移植：懂边界的截图工具"
 license = "Apache-2.0"
