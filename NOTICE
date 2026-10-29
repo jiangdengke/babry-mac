@@ -7,7 +7,7 @@ Babry: https://github.com/kregonia/babry ，作者 kregonia，以 Apache License
 
 相对上游的修改（Apache License 2.0 第 4(b) 条）：
 - 删除 src/compositor.rs（niri / Hyprland IPC），新增 src/display.rs（NSScreen）。
-- 重写 src/capture.rs：grim 改为 screencapture，wl-copy 改为 NSPasteboard，
+- 重写 src/capture.rs：grim 改为 ScreenCaptureKit，wl-copy 改为 NSPasteboard，
   notify-send 改为 osascript。
 - 重写贴图：移除 Wayland layer-shell 实现，改用浮动层级的无边框窗口
   （src/pin.rs、新增 src/pin_window.rs 与 ui/pin.slint）。

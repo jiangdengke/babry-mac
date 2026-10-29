@@ -1,4 +1,4 @@
-Babry 的 macOS 版。通用版本，Apple 芯片和 Intel Mac 都能运行。
+Babry 的 macOS 版。需要 macOS 14 或更高版本；通用版本，Apple 芯片和 Intel Mac 都能运行。
 
 ## 安装
 

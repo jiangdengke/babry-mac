@@ -2,6 +2,7 @@
 //! 并记录悬停、滚轮切换和最终选区，之后可以用同一张图离线重放。
 
 use crate::{core::RectPx, display::OutputInfo};
+use image::RgbaImage;
 use std::{
     fs::File,
     io::Write,
@@ -15,9 +16,9 @@ pub struct DebugLog(Arc<Mutex<File>>);
 
 impl DebugLog {
     /// 未设置环境变量时返回 None；写入失败只打印警告，不影响截图。
-    pub fn from_env(source: &Path, output: &OutputInfo) -> Option<Self> {
+    pub fn from_env(capture: &RgbaImage, output: &OutputInfo) -> Option<Self> {
         let directory = PathBuf::from(std::env::var_os("BABRY_DEBUG_DIR")?);
-        match Self::create(&directory, source, output) {
+        match Self::create(&directory, capture, output) {
             Ok(log) => {
                 eprintln!("调试记录: {}", directory.display());
                 Some(log)
@@ -29,10 +30,16 @@ impl DebugLog {
         }
     }
 
-    pub fn create(directory: &Path, source: &Path, output: &OutputInfo) -> std::io::Result<Self> {
+    pub fn create(
+        directory: &Path,
+        capture: &RgbaImage,
+        output: &OutputInfo,
+    ) -> std::io::Result<Self> {
         let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
         std::fs::create_dir_all(directory)?;
-        std::fs::copy(source, directory.join(format!("babry-debug-{stamp}.png")))?;
+        capture
+            .save(directory.join(format!("babry-debug-{stamp}.png")))
+            .map_err(std::io::Error::other)?;
         let mut file = File::create(directory.join(format!("babry-debug-{stamp}.log")))?;
         writeln!(
             file,
@@ -71,8 +78,7 @@ mod tests {
     #[test]
     fn saves_the_capture_and_appends_events() {
         let directory = tempfile::tempdir().unwrap();
-        let source = directory.path().join("source.png");
-        image::RgbaImage::new(4, 4).save(&source).unwrap();
+        let capture = RgbaImage::new(4, 4);
         let output = OutputInfo {
             name: "Built-in".into(),
             x: 0,
@@ -83,7 +89,7 @@ mod tests {
             focused: true,
         };
         let target = directory.path().join("debug");
-        let log = DebugLog::create(&target, &source, &output).unwrap();
+        let log = DebugLog::create(&target, &capture, &output).unwrap();
         log.hover(0.25, 0.5, RectPx::new(1, 2, 3, 4));
         log.wheel(0.25, 0.5, -1, RectPx::new(0, 0, 4, 4));
         drop(log);

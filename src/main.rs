@@ -14,7 +14,7 @@ use image::{Rgba, RgbaImage};
 use slint::{ComponentHandle, LogicalSize, SharedPixelBuffer};
 use std::{
     cell::RefCell,
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::Rc,
     sync::Arc,
     time::{Duration, Instant},
@@ -90,23 +90,17 @@ fn run_capture(direct_edit: bool, output: Option<String>) -> Result<(), String> 
     // 在编辑器抢占焦点之前确定输出，默认启动也必须只捕获这一块屏幕。
     let outputs = display::outputs()?;
     let selected = display::select_output(&outputs, output.as_deref())?;
-    let temp = capture::temp_png()?;
-    let source = temp.path().to_path_buf();
-
-    capture::capture(&source, &selected)?;
-    let debug = DebugLog::from_env(&source, &selected);
-    run_editor(source, direct_edit, selected, debug)
+    let base = capture::capture(&selected)?;
+    let debug = DebugLog::from_env(&base, &selected);
+    run_editor(base, direct_edit, selected, debug)
 }
 
 fn run_editor(
-    source: PathBuf,
+    base: RgbaImage,
     direct_edit: bool,
     output: OutputInfo,
     debug: Option<DebugLog>,
 ) -> Result<(), String> {
-    let base = image::open(&source)
-        .map_err(|error| error.to_string())?
-        .to_rgba8();
     if base.width() == 0 || base.height() == 0 {
         return Err("截图尺寸为空".to_string());
     }
@@ -378,9 +372,9 @@ fn run_editor(
         });
     }
 
-    let save_action = make_export_action(&app, &source, &committed, base_image.clone(), false);
-    let copy_action = make_export_action(&app, &source, &committed, base_image.clone(), true);
-    let pin_action = make_pin_action(&app, &source, &committed, base_image, output.name);
+    let save_action = make_export_action(&app, &committed, base_image.clone(), false);
+    let copy_action = make_export_action(&app, &committed, base_image.clone(), true);
+    let pin_action = make_pin_action(&app, &committed, base_image, output.name);
 
     app.on_save(save_action);
     app.on_copy(copy_action);
@@ -452,20 +446,18 @@ fn set_selection(app: &AppWindow, detector: &RegionDetector, rect: babry::core::
 
 fn make_export_action(
     app: &AppWindow,
-    source: &Path,
     committed: &SharedMarks,
-    _base: Arc<RgbaImage>,
+    base: Arc<RgbaImage>,
     copy_to_clipboard: bool,
 ) -> impl Fn() + 'static {
     let weak = app.as_weak();
-    let source = source.to_path_buf();
     let committed = committed.clone();
     move || {
         let Some(app) = weak.upgrade() else { return };
         let output = output_path();
         let selection = (app.get_sx(), app.get_sy(), app.get_sw(), app.get_sh());
         let marks = committed.borrow();
-        match editor::export(&source, &output, selection, marks.entries()) {
+        match editor::export(&base, &output, selection, marks.entries()) {
             Ok(()) => {
                 if copy_to_clipboard && let Err(error) = capture::copy_png(&output) {
                     capture::notify(&format!("复制失败: {error}"));
@@ -490,20 +482,18 @@ fn make_export_action(
 
 fn make_pin_action(
     app: &AppWindow,
-    source: &Path,
     committed: &SharedMarks,
-    _base: Arc<RgbaImage>,
+    base: Arc<RgbaImage>,
     output_name: String,
 ) -> impl Fn() + 'static {
     let weak = app.as_weak();
-    let source = source.to_path_buf();
     let committed = committed.clone();
     move || {
         let Some(app) = weak.upgrade() else { return };
         let output = output_path();
         let selection = (app.get_sx(), app.get_sy(), app.get_sw(), app.get_sh());
         let marks = committed.borrow();
-        match editor::export(&source, &output, selection, marks.entries()) {
+        match editor::export(&base, &output, selection, marks.entries()) {
             Ok(()) => match pin::launch(&output, Some(output_name.clone())) {
                 Ok(()) => {
                     capture::notify("截图已贴到屏幕");

@@ -1,5 +1,5 @@
 use ab_glyph::{Font, FontArc, FontVec, ScaleFont};
-use image::{DynamicImage, GenericImageView, Rgba, RgbaImage, imageops};
+use image::{DynamicImage, Rgba, RgbaImage, imageops};
 use imageproc::drawing::{
     draw_filled_circle_mut, draw_hollow_ellipse_mut, draw_hollow_rect_mut, draw_line_segment_mut,
     draw_text_mut, text_size,
@@ -86,12 +86,11 @@ impl Mark {
 }
 
 pub fn export(
-    source: &Path,
+    image: &RgbaImage,
     output: &Path,
     selection: (f32, f32, f32, f32),
     marks: &[Mark],
 ) -> Result<(), String> {
-    let image = image::open(source).map_err(|e| e.to_string())?;
     let (iw, ih) = image.dimensions();
     let (sx, sy, sw, sh) = selection;
     let px = (sx * iw as f32).round().clamp(0.0, iw as f32 - 1.0) as u32;
@@ -103,7 +102,7 @@ pub fn export(
     }) {
         return Err("无法加载文字标注字体，请设置 BABRY_FONT".to_string());
     }
-    let mut canvas = imageops::crop_imm(&image, px, py, pw, ph).to_image();
+    let mut canvas = imageops::crop_imm(image, px, py, pw, ph).to_image();
 
     for mark in marks {
         draw_mark(
@@ -796,14 +795,12 @@ mod tests {
             return;
         }
         let directory = tempfile::tempdir().unwrap();
-        let source_path = directory.path().join("source.png");
         let output_path = directory.path().join("output.png");
         let source = RgbaImage::from_pixel(100, 80, Rgba([20, 30, 40, 255]));
-        DynamicImage::ImageRgba8(source).save(&source_path).unwrap();
 
         let mut mark = Mark::new(10, 0.3, 0.35, 0.3, 0.35, red(), 4);
         mark.set_text("A".to_string());
-        export(&source_path, &output_path, (0.2, 0.25, 0.6, 0.5), &[mark]).unwrap();
+        export(&source, &output_path, (0.2, 0.25, 0.6, 0.5), &[mark]).unwrap();
 
         let output = image::open(&output_path).unwrap().to_rgba8();
         assert_eq!(output.dimensions(), (60, 40));

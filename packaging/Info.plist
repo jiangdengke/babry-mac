@@ -22,7 +22,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>11.0</string>
+	<string>14.0</string>
 	<!-- 截图工具不需要 Dock 图标和菜单栏，与运行时的 Accessory 策略一致。 -->
 	<key>LSUIElement</key>
 	<true/>

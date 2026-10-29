@@ -36,11 +36,11 @@ CV 智能选区、标注渲染、撤销历史、命令行解析和 Slint 界面�
 | 多显示器 | 🧪 | 截取鼠标所在的屏幕，或用 `--output` 指定 |
 | 贴图 | ✅ | 浮在普通窗口之上，可移动、缩放、调整大小，可同时钉多张 |
 | 全局快捷键、菜单栏常驻 | ❌ | 计划中；目前用 Raycast 绑定，见下文 |
-| ScreenCaptureKit | ❌ | 目前调用系统的 `screencapture` |
+| ScreenCaptureKit | ✅ | 进程内截图，不启动子进程、不写临时文件 |
 
 ## 安装
 
-1. 从 [Releases](https://github.com/jiangdengke/babry-mac/releases/latest) 下载 `Babry-版本号.dmg` 并打开。Apple 芯片和 Intel Mac 都能运行。
+1. 从 [Releases](https://github.com/jiangdengke/babry-mac/releases/latest) 下载 `Babry-版本号.dmg` 并打开。需要 macOS 14 或更高版本，Apple 芯片和 Intel Mac 都能运行。
 2. 把 Babry 拖到“应用程序”文件夹。
 3. 第一次打开时，macOS 会提示无法验证开发者，因为这个 App 没有经过 Apple 公证。到“系统设置 → 隐私与安全性”点“仍要打开”，或在终端运行 `xattr -dr com.apple.quarantine /Applications/Babry.app`。
 4. 第一次截图时，在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许 Babry，然后重新打开 Babry。每次更新版本后可能需要重新允许。
@@ -133,7 +133,7 @@ export BABRY_FONT_INDEX=0   # .ttc 字体集合中的索引
 
 | 上游（Linux） | 本仓库（macOS） | 文件 |
 | --- | --- | --- |
-| `grim` 截屏 | `screencapture -R` 按屏幕矩形截取 | `src/capture.rs` |
+| `grim` 截屏 | ScreenCaptureKit 按屏幕矩形截取（macOS 15.2 起），macOS 14 按显示器截取 | `src/capture.rs` |
 | `wl-copy` | `NSPasteboard` | `src/capture.rs` |
 | `notify-send` | `osascript` 通知 | `src/capture.rs` |
 | niri / Hyprland IPC | `NSScreen` | `src/display.rs` |
@@ -146,7 +146,8 @@ export BABRY_FONT_INDEX=0   # .ttc 字体集合中的索引
 - [x] 覆盖窗口、Retina、贴图、DMG 打包
 - [ ] 外接显示器实测
 - [ ] 通知改用 `UNUserNotificationCenter`，来源显示为 Babry
-- [ ] 换成 ScreenCaptureKit；签名和公证；用窗口边框辅助 CV 吸附
+- [x] 换成 ScreenCaptureKit
+- [ ] 签名和公证；用窗口边框辅助 CV 吸附
 
 ## 开发
 
