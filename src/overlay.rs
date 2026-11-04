@@ -33,6 +33,8 @@ pub enum Layer {
     Editor,
     /// 贴图：浮在普通窗口之上，低于菜单栏。
     Pin,
+    /// 设置窗口：带标题栏，浮在普通窗口之上。
+    Settings,
 }
 
 /// 选择 winit 后端，并预设窗口属性。必须在创建任何 Slint 组件之前调用。
@@ -54,11 +56,17 @@ pub fn select_backend(frame: Frame, layer: Layer) -> Result<(), String> {
         .with_winit_event_loop_builder(event_loop)
         .with_winit_window_attributes_hook(move |attributes| {
             attributes
-                .with_decorations(false)
+                .with_decorations(layer == Layer::Settings)
+                // 设置窗口只留关闭按钮：这个 App 没有 Dock 入口，最小化后不好找回。
+                .with_enabled_buttons(if layer == Layer::Settings {
+                    winit::window::WindowButtons::CLOSE
+                } else {
+                    winit::window::WindowButtons::all()
+                })
                 .with_resizable(false)
                 .with_position(position)
                 .with_inner_size(size)
-                .with_has_shadow(layer == Layer::Pin)
+                .with_has_shadow(layer != Layer::Editor)
                 .with_accepts_first_mouse(true)
         })
         .select()
@@ -69,7 +77,7 @@ pub fn select_backend(frame: Frame, layer: Layer) -> Result<(), String> {
 #[cfg(target_os = "macos")]
 pub fn raise(window: &winit::window::Window, frame: Frame, layer: Layer) {
     use objc2_app_kit::{
-        NSFloatingWindowLevel, NSStatusWindowLevel, NSWindowAnimationBehavior,
+        NSColor, NSFloatingWindowLevel, NSStatusWindowLevel, NSWindowAnimationBehavior,
         NSWindowCollectionBehavior,
     };
 
@@ -80,7 +88,7 @@ pub fn raise(window: &winit::window::Window, frame: Frame, layer: Layer) {
         // 菜单栏是 24、状态栏是 25。再高一级就能盖住它们，
         // 同时低于弹出菜单（101），中文输入法的候选窗不会被挡住。
         Layer::Editor => NSStatusWindowLevel + 1,
-        Layer::Pin => NSFloatingWindowLevel,
+        Layer::Pin | Layer::Settings => NSFloatingWindowLevel,
     };
     ns_window.setLevel(level);
     // 出现在当前桌面空间，包括其他应用的全屏空间；不参与 ⌘` 窗口切换。
@@ -91,9 +99,61 @@ pub fn raise(window: &winit::window::Window, frame: Frame, layer: Layer) {
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
     ns_window.setAnimationBehavior(NSWindowAnimationBehavior::None);
-    ns_window.setHasShadow(layer == Layer::Pin);
-    set_frame(window, frame);
+    ns_window.setHasShadow(layer != Layer::Editor);
+    if layer == Layer::Settings {
+        // Slint 创建的窗口背景透明，内容区有自己的底色，标题栏却会透出后面的窗口。
+        ns_window.setOpaque(true);
+        ns_window.setBackgroundColor(Some(&NSColor::windowBackgroundColor()));
+    } else {
+        // 设置窗口的位置和内容尺寸在创建时就定好了；set_frame 写的是含标题栏的外框。
+        set_frame(window, frame);
+    }
+    if layer != Layer::Pin {
+        make_nonactivating(&ns_window);
+    }
     ns_window.makeKeyAndOrderFront(None);
+}
+
+/// macOS 14 起后台进程无法抢占前台，激活调用和 `open` 都不会让窗口拿到键盘，
+/// Esc 和 ⌘S 要等用户点一下才生效。非激活面板不切换前台应用也能接收键盘，
+/// 截图结束后焦点自然留在原来的应用。
+///
+/// winit 0.30 只会创建 NSWindow，而 AppKit 只接受 NSPanel 的非激活样式。不能替换窗口对象的类：
+/// winit 和 AppKit 都在这个窗口上注册了 KVO，换类后窗口释放时注销观察会抛异常退出。
+/// 所以改 winit 窗口类的父类，对象自己的类不变。失败时只是退回到需要先点一下。
+#[cfg(target_os = "macos")]
+fn make_nonactivating(window: &objc2_app_kit::NSWindow) {
+    use objc2::{
+        ClassType,
+        runtime::{AnyClass, AnyObject},
+    };
+    use objc2_app_kit::{NSPanel, NSWindow, NSWindowStyleMask};
+
+    unsafe extern "C" {
+        fn class_setSuperclass(
+            class: *const AnyClass,
+            superclass: *const AnyClass,
+        ) -> *const AnyClass;
+    }
+
+    let Some(winit_class) = AnyClass::get(c"WinitWindow") else {
+        return;
+    };
+    let object: &AnyObject = window.as_ref();
+    let is_winit_window =
+        object.class() == winit_class || object.class().superclass() == Some(winit_class);
+    if !is_winit_window
+        || winit_class.superclass() != Some(NSWindow::class())
+        || NSPanel::class().instance_size() != NSWindow::class().instance_size()
+    {
+        return;
+    }
+    // SAFETY: 上面检查过 winit 窗口类直接继承 NSWindow，且 NSPanel 没有新增实例变量，
+    // 已创建的窗口内存布局不变；两个类都已注册，运行时会刷新方法缓存。
+    unsafe { class_setSuperclass(winit_class, NSPanel::class()) };
+    window.setStyleMask(window.styleMask() | NSWindowStyleMask::NonactivatingPanel);
+    // 这个应用从不切到前台，不能在“失去前台”时隐藏。
+    window.setHidesOnDeactivate(false);
 }
 
 /// 一次写入位置和尺寸。分开设置时 AppKit 以左下角为原点改尺寸，窗口会先跳一下。

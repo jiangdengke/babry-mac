@@ -35,7 +35,7 @@ CV 智能选区、标注渲染、撤销历史、命令行解析和 Slint 界面�
 | Babry.app 与 DMG | ✅ | 通用版本；未经 Apple 公证，首次打开需手动允许 |
 | 多显示器 | 🧪 | 截取鼠标所在的屏幕，或用 `--output` 指定 |
 | 贴图 | ✅ | 浮在普通窗口之上，可移动、缩放、调整大小，可同时钉多张 |
-| 全局快捷键、菜单栏常驻 | ❌ | 计划中；目前用 Raycast 绑定，见下文 |
+| 全局快捷键、菜单栏常驻 | ✅ | 默认 `⌃⌥S` 智能截图、`⌃⌥F` 全屏截图，可以录制修改；支持开机启动 |
 | ScreenCaptureKit | ✅ | 进程内截图，不启动子进程、不写临时文件 |
 
 ## 安装
@@ -43,11 +43,11 @@ CV 智能选区、标注渲染、撤销历史、命令行解析和 Slint 界面�
 1. 从 [Releases](https://github.com/jiangdengke/babry-mac/releases/latest) 下载 `Babry-版本号.dmg` 并打开。需要 macOS 14 或更高版本，Apple 芯片和 Intel Mac 都能运行。
 2. 把 Babry 拖到“应用程序”文件夹。
 3. 第一次打开时，macOS 会提示无法验证开发者，因为这个 App 没有经过 Apple 公证。到“系统设置 → 隐私与安全性”点“仍要打开”，或在终端运行 `xattr -dr com.apple.quarantine /Applications/Babry.app`。
-4. 第一次截图时，在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许 Babry，然后重新打开 Babry。每次更新版本后可能需要重新允许。
+4. 打开后 Babry 常驻菜单栏。第一次截图时，在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许 Babry，然后再按一次快捷键。每次更新版本后可能需要重新允许。
 
 ### 从源码构建
 
-需要 Rust 1.88 或更高版本（代码使用了 let chains）。
+需要 Rust 1.89 或更高版本（代码使用了 let chains 和 `File::try_lock`）。
 
 ```bash
 git clone https://github.com/jiangdengke/babry-mac.git
@@ -58,34 +58,57 @@ cargo run --release -- --screen # 开发时直接运行
 
 ## 运行
 
-打开 Babry（双击、Spotlight、Launchpad 或 Raycast）就会立刻进入智能选区截图。需要参数时，用 `open` 传给 App：
+第一次打开 Babry（双击、Spotlight 或 Launchpad）后，它常驻菜单栏，之后用快捷键或菜单截图：
+
+| 操作 | 方式 |
+| --- | --- |
+| 智能截图：悬停吸附，点击确认 | `⌃⌥S`，或菜单“智能截图”，或再次打开 Babry |
+| 全屏截图并直接进入编辑 | `⌃⌥F`，或菜单“全屏截图” |
+| 修改快捷键 | 菜单“设置快捷键…”，直接录制按键 |
+| 开机自动运行 | 菜单“开机时启动” |
+| 退出 | 菜单“退出 Babry” |
+
+编辑窗口开着时再按快捷键会被忽略，不会叠加第二张截图。
+
+菜单栏图标放不下时，macOS 会把它折叠成 `«`，刘海屏上很常见。这时快捷键不受影响，关掉几个其他图标就能看到它。
+
+需要参数时，用 `open -n` 另外启动一个实例：
 
 ```bash
-open -a Babry                                 # CV 智能区域截图：悬停吸附，点击确认
-open -a Babry --args --screen                 # 截取整个屏幕并直接进入编辑
-open -a Babry --args --output NAME            # 在指定显示器截图，可与 --screen 组合
+open -n -a Babry --args --region              # CV 智能区域截图
+open -n -a Babry --args --screen              # 截取整个屏幕并直接进入编辑
+open -n -a Babry --args --output NAME         # 在指定显示器截图，可与 --screen 组合
 /Applications/Babry.app/Contents/MacOS/babry --list-outputs   # 列出显示器名称、位置和缩放
 /Applications/Babry.app/Contents/MacOS/babry --help
 ```
 
-直接在终端运行 App 里的 `babry` 也可以，但这时录屏权限算在终端身上。
+Babry 已经在运行时，不带 `-n` 的 `open -a` 会丢掉参数，只触发一次智能截图。
 
-## 绑定快捷键
+直接在终端运行 App 里的 `babry` 也可以：不带参数是一次性智能截图，`babry --menu-bar` 是常驻菜单栏。这时录屏权限算在终端身上。
 
-Babry 还没有内置全局快捷键。上游在 niri 里用 `binds` 绑定，macOS 上可以用 [Raycast](https://www.raycast.com/) 的 Script Command 代替：
+## 修改快捷键
 
-1. 按上文从 DMG 安装 Babry。
-2. 打开 Raycast 设置 → Extensions → `+` → Add Script Directory，选择本仓库的 `scripts/raycast`。
-3. 在列表里找到“Babry 智能截图”和“Babry 全屏截图”，分别点 Hotkey 设置快捷键。
+点菜单“设置快捷键…”，在窗口里点录制框，按下新的组合键就会保存，关闭窗口后生效。点录制框里的 `×` 可以取消绑定，“恢复默认”回到 `⌃⌥S` 和 `⌃⌥F`。录制时按 `Esc` 取消。
 
-脚本通过 `open -a Babry` 启动 App，所以录屏权限只需要给 Babry，不需要给 Raycast。
+组合键要带 `⌃`、`⌥` 或 `⌘`，只有 F1 到 F12 可以单独使用。全局快捷键会盖过所有应用里的同名快捷键，选的时候要注意。默认值避开了 `⌘⇧3/4/5`（系统截图）、`⌘⇧S`（很多应用的“另存为”）、`⌥⇧F`（编辑器的格式化文档）和 `⌃⇧` 系列（kitty 等终端的默认前缀）。
 
-| 上游 niri 绑定 | 脚本 | 建议的 Mac 快捷键 |
-| --- | --- | --- |
-| `Mod+Shift+S` → `babry` | `babry-region.sh` | `⌥⇧S` |
-| `Mod+Shift+F` → `babry --screen` | `babry-screen.sh` | `⌥⇧F` |
+设置保存在 `~/Library/Application Support/Babry/hotkeys.json`，也可以手动编辑，下次启动 Babry 时生效：
 
-避开 `⌘⇧3/4/5`（系统截图）和 `⌘⇧S`（很多应用的“另存为”）。
+```json
+{
+  "region": "ctrl+alt+s",
+  "screen": "ctrl+alt+f"
+}
+```
+
+### 用 Raycast 触发
+
+不需要 Raycast 也能用快捷键。如果想从 Raycast 里搜索或绑定：
+
+1. 打开 Raycast 设置 → Extensions → `+` → Add Script Directory，选择本仓库的 `scripts/raycast`。
+2. 在列表里找到“Babry 智能截图”和“Babry 全屏截图”，按需设置 Hotkey。不要和 Babry 自己的快捷键设成同一组按键，否则一次会截两张。
+
+脚本通过 `open -n -a Babry` 启动 App，所以录屏权限只需要给 Babry，不需要给 Raycast。
 
 ## 交互方式
 
@@ -137,13 +160,15 @@ export BABRY_FONT_INDEX=0   # .ttc 字体集合中的索引
 | `wl-copy` | `NSPasteboard` | `src/capture.rs` |
 | `notify-send` | `osascript` 通知 | `src/capture.rs` |
 | niri / Hyprland IPC | `NSScreen` | `src/display.rs` |
-| niri `open-fullscreen` 窗口规则 | 无边框窗口，层级高于菜单栏 | `src/overlay.rs` |
+| niri `binds` 绑定快捷键 | 内置全局快捷键、菜单栏常驻进程和设置窗口 | `src/hotkeys.rs`、`src/menu_bar.rs`、`src/settings_window.rs`、`ui/settings.slint` |
+| niri `open-fullscreen` 窗口规则 | 无边框的非激活面板，层级高于菜单栏 | `src/overlay.rs` |
 | layer-shell 贴图 | 浮动层级的无边框窗口，每张贴图一个进程 | `src/pin.rs`、`src/pin_window.rs`、`ui/pin.slint` |
 | `/usr/share/fonts`、`fc-match` | macOS 系统字体 | `src/editor.rs` |
 
 ## 路线图
 
 - [x] 覆盖窗口、Retina、贴图、DMG 打包
+- [x] 全局快捷键和菜单栏常驻
 - [ ] 外接显示器实测
 - [ ] 通知改用 `UNUserNotificationCenter`，来源显示为 Babry
 - [x] 换成 ScreenCaptureKit

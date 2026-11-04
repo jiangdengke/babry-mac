@@ -10,11 +10,11 @@ Babry 的 macOS 版。需要 macOS 14 或更高版本；通用版本，Apple 芯
    xattr -dr com.apple.quarantine /Applications/Babry.app
    ```
 
-4. 第一次截图时，在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许 Babry，然后重新打开 Babry。
+4. 打开后 Babry 常驻菜单栏。第一次截图时，在“系统设置 → 隐私与安全性 → 录屏与系统录音”中允许 Babry，然后再按一次快捷键。
 
 ## 使用
 
-- 打开 Babry（双击、Spotlight 或 Launchpad）就会立刻进入智能选区截图。
-- 用 Raycast 绑定快捷键的方法见 README。
+- `⌃⌥S` 智能截图，`⌃⌥F` 全屏截图。也可以点菜单栏图标，或再次打开 Babry。
+- 在菜单栏图标的菜单里可以录制新的快捷键、设置开机启动。
 
 每次更新版本后，可能需要重新允许录屏权限。

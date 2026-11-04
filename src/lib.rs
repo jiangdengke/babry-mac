@@ -4,6 +4,9 @@ pub mod core;
 pub mod debug_log;
 pub mod display;
 pub mod editor;
+#[cfg(target_os = "macos")]
+pub mod hotkeys;
+pub mod menu_bar;
 pub mod overlay;
 pub mod pin;
 pub mod selection;

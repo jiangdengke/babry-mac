@@ -12,6 +12,8 @@ Babry: https://github.com/kregonia/babry ，作者 kregonia，以 Apache License
 - 重写贴图：移除 Wayland layer-shell 实现，改用浮动层级的无边框窗口
   （src/pin.rs、新增 src/pin_window.rs 与 ui/pin.slint）。
 - 新增 src/overlay.rs：铺满屏幕、盖住菜单栏的无边框编辑窗口。
+- 新增 src/menu_bar.rs、src/hotkeys.rs、src/settings_window.rs、ui/settings.slint：
+  菜单栏常驻进程、全局快捷键和设置窗口。
 - 修改 src/editor.rs：标注字体改用 macOS 系统字体。
 - 修改 src/main.rs、src/lib.rs、Cargo.toml、README.md 以适配上述变化。
 - 删除 Linux CI，新增 macOS CI。

@@ -1,0 +1,118 @@
+// 快捷键设置窗口：点录制框后按下组合键。录制用物理按键，逻辑都在 src/settings_window.rs。
+import { Button, Palette } from "std-widgets.slint";
+
+// 录制框：平时显示当前快捷键，录制时显示正在按住的修饰键。
+component Recorder inherits Rectangle {
+    in property <string> text; // 当前快捷键，空字符串表示未设置。
+    in property <string> preview; // 录制时已按住的修饰键。
+    in property <bool> recording;
+    callback clicked();
+    callback clear();
+
+    width: 170px;
+    height: 30px;
+    border-radius: 6px;
+    border-width: root.recording ? 2px : 1px;
+    border-color: root.recording ? Palette.accent-background : Palette.border;
+    background: touch.has-hover ? Palette.alternate-background : Palette.control-background;
+    accessible-role: button;
+    accessible-label: root.recording ? "正在录制快捷键" : root.text;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Text {
+        text: root.recording ? (root.preview == "" ? "请按下快捷键" : root.preview + " …")
+            : (root.text == "" ? "未设置" : root.text);
+        color: Palette.foreground;
+        opacity: !root.recording && root.text == "" ? 0.5 : 1;
+        font-size: 13px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    // 清除按钮放在点击区域之后，点到它时不会开始录制。
+    if !root.recording && root.text != "": Rectangle {
+        x: parent.width - self.width - 6px;
+        y: (parent.height - self.height) / 2;
+        width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        background: clear-touch.has-hover ? Palette.border : transparent;
+        accessible-role: button;
+        accessible-label: "清除快捷键";
+        Text {
+            text: "×";
+            color: Palette.foreground;
+            font-size: 13px;
+        }
+        clear-touch := TouchArea {
+            clicked => { root.clear(); }
+        }
+    }
+}
+
+export component SettingsWindow inherits Window {
+    title: "Babry 快捷键";
+    // 尺寸要和 src/settings_window.rs 保持一致，那里用它计算屏幕居中的位置。
+    width: 340px;
+    height: 160px;
+    background: Palette.background;
+
+    in property <string> region-text;
+    in property <string> screen-text;
+    in property <int> recording: 0; // 0 未录制；1 智能截图；2 全屏截图。
+    in property <string> preview;
+    in property <string> message;
+    in property <bool> message-is-error: false;
+
+    callback record(int);
+    callback clear(int);
+    callback restore-defaults();
+
+    VerticalLayout {
+        alignment: start;
+        padding: 18px;
+        spacing: 12px;
+
+        HorizontalLayout {
+            alignment: space-between;
+            Text { text: "智能截图"; color: Palette.foreground; vertical-alignment: center; }
+            Recorder {
+                text: root.region-text;
+                preview: root.preview;
+                recording: root.recording == 1;
+                clicked => { root.record(1); }
+                clear => { root.clear(1); }
+            }
+        }
+        HorizontalLayout {
+            alignment: space-between;
+            Text { text: "全屏截图"; color: Palette.foreground; vertical-alignment: center; }
+            Recorder {
+                text: root.screen-text;
+                preview: root.preview;
+                recording: root.recording == 2;
+                clicked => { root.record(2); }
+                clear => { root.clear(2); }
+            }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            Text {
+                text: root.message;
+                color: root.message-is-error ? #e5484d : Palette.foreground;
+                opacity: root.message-is-error ? 1 : 0.65;
+                font-size: 12px;
+                wrap: word-wrap;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: "恢复默认";
+                horizontal-stretch: 0;
+                clicked => { root.restore-defaults(); }
+            }
+        }
+    }
+}

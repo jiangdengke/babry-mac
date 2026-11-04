@@ -4,7 +4,7 @@ use babry::{
     core::History,
     debug_log::DebugLog,
     display::{self, OutputInfo},
-    editor,
+    editor, menu_bar,
     overlay::{self, Frame, Layer},
     pin,
     selection::{self, RegionDetector, SelectionCursor},
@@ -23,6 +23,7 @@ use std::{
 slint::include_modules!();
 
 mod pin_window;
+mod settings_window;
 #[cfg(test)]
 mod ui_tests;
 
@@ -48,12 +49,15 @@ fn main() -> Result<(), slint::PlatformError> {
 }
 
 fn dispatch() -> Result<(), String> {
-    let command = cli::parse(std::env::args())?;
+    let started_by_launchd = std::os::unix::process::parent_id() == 1;
+    let command = cli::parse_launch(std::env::args(), started_by_launchd)?;
     match command {
         cli::Command::Help => {
             println!("{}", cli::usage());
             Ok(())
         }
+        cli::Command::MenuBar => menu_bar::run(),
+        cli::Command::Settings => settings_window::run(),
         cli::Command::Region => run_capture(false, None),
         cli::Command::Screen => run_capture(true, None),
         cli::Command::Pin(path) => pin::launch(&path, None),

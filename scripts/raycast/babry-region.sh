@@ -11,8 +11,8 @@
 # @raycast.description 悬停吸附、点击确认的区域截图
 
 # 通过 open 启动 Babry.app，录屏权限算在 Babry 自己身上，而不是 Raycast。
-# Babry 正在截图时再次触发只会切回当前窗口，不会叠加第二个。
-if ! open -a Babry 2>/dev/null; then
+# Babry 常驻菜单栏时，不带 -n 的 open 会丢掉参数，所以每次启动一个新实例。
+if ! open -n -a Babry --args --region 2>/dev/null; then
   echo "找不到 Babry.app，请先从 DMG 安装"
   exit 1
 fi

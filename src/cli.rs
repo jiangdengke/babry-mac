@@ -10,6 +10,22 @@ pub enum Command {
     Help,
     OnOutput { command: Box<Command>, name: String },
     ListOutputs,
+    MenuBar,
+    Settings,
+}
+
+/// 启动入口的解析。双击、Spotlight、开机启动时父进程是 launchd 且没有参数，进入菜单栏常驻；
+/// 在终端里直接运行 babry 仍然是一次性的智能截图。
+pub fn parse_launch<I>(args: I, started_by_launchd: bool) -> Result<Command, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let values: Vec<String> = args.into_iter().collect();
+    let no_arguments = values.iter().skip(1).all(|arg| arg.starts_with("-psn_"));
+    if started_by_launchd && no_arguments {
+        return Ok(Command::MenuBar);
+    }
+    parse(values)
 }
 
 pub fn parse<I>(args: I) -> Result<Command, String>
@@ -79,6 +95,8 @@ where
             )
         }
         "--list-outputs" => ensure_no_extra(args, Command::ListOutputs),
+        "--menu-bar" => ensure_no_extra(args, Command::MenuBar),
+        "--settings" => ensure_no_extra(args, Command::Settings),
         "--help" | "-h" => ensure_no_extra(args, Command::Help),
         unknown => Err(format!("未知参数: {unknown}\n\n{}", usage())),
     }
@@ -96,7 +114,7 @@ where
 }
 
 pub fn usage() -> &'static str {
-    "用法:\n  babry                    CV 智能区域截图\n  babry --region           CV 智能区域截图\n  babry --smart            CV 智能区域截图\n  babry --screen           全屏截图后进入编辑\n  babry --pin PATH         将 PNG 作为屏幕贴图显示\n  babry --debug-selection IMAGE DIR\n                           输出 CV 候选图和评分 JSON\n  babry --output NAME      在指定显示器截图（可与 --screen 或 --pin 组合）\n  babry --list-outputs     列出显示器及逻辑尺寸、位置、缩放\n  babry --help             显示帮助"
+    "用法:\n  babry                    CV 智能区域截图\n  babry --region           CV 智能区域截图\n  babry --smart            CV 智能区域截图\n  babry --screen           全屏截图后进入编辑\n  babry --pin PATH         将 PNG 作为屏幕贴图显示\n  babry --debug-selection IMAGE DIR\n                           输出 CV 候选图和评分 JSON\n  babry --output NAME      在指定显示器截图（可与 --screen 或 --pin 组合）\n  babry --list-outputs     列出显示器及逻辑尺寸、位置、缩放\n  babry --menu-bar         常驻菜单栏并注册全局快捷键\n  babry --settings         打开快捷键设置窗口\n  babry --help             显示帮助"
 }
 
 #[cfg(test)]
@@ -137,6 +155,22 @@ mod tests {
         assert_eq!(
             parse_args(&["babry", "-psn_0_1", "--screen"]),
             Ok(Command::Screen)
+        );
+    }
+
+    #[test]
+    fn opening_the_app_starts_the_menu_bar_but_the_terminal_captures() {
+        let launch = |args: &[&str], launchd| {
+            parse_launch(args.iter().map(|arg| (*arg).to_string()), launchd)
+        };
+        assert_eq!(launch(&["babry"], true), Ok(Command::MenuBar));
+        assert_eq!(launch(&["babry", "-psn_0_1"], true), Ok(Command::MenuBar));
+        assert_eq!(launch(&["babry"], false), Ok(Command::Region));
+        assert_eq!(launch(&["babry", "--screen"], true), Ok(Command::Screen));
+        assert_eq!(launch(&["babry", "--region"], true), Ok(Command::Region));
+        assert_eq!(
+            launch(&["babry", "--menu-bar"], false),
+            Ok(Command::MenuBar)
         );
     }
 
