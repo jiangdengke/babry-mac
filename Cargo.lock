@@ -525,7 +525,7 @@ dependencies = [
 
 [[package]]
 name = "babry-mac"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "ab_glyph",
  "block2 0.6.2",
