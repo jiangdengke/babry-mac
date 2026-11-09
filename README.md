@@ -176,7 +176,7 @@ export BABRY_FONT_INDEX=0   # .ttc 字体集合中的索引
 
 ## 开发
 
-发布新版本：把 `Cargo.toml` 的版本改成新版本号并提交，再推送同名 tag，例如 `git tag v0.2.0 && git push origin v0.2.0`。`release` 工作流会编译通用版本的 Babry.app，打成 DMG 并创建 Release；本地可以用 `scripts/package-macos.sh` 试打包。App 图标由 `scripts/make-icon.sh` 从 logo 生成。
+发布新版本：把 `Cargo.toml` 的版本改成新版本号并提交，再推送同名 tag，例如 `git tag v0.2.0 && git push origin v0.2.0`。`release` 工作流会编译通用版本的 Babry.app，打成 DMG 并创建 Release，依赖的编译结果从 master 上 `macos` 检查保存的缓存读取；本地可以用 `scripts/package-macos.sh` 试打包。App 图标由 `scripts/make-icon.sh` 从 logo 生成。
 
 ```bash
 cargo fmt --all

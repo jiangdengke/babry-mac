@@ -25,6 +25,13 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
+      # 读取 master 上的检查保存的缓存。tag 上保存的缓存别的 tag 读不到，所以不保存。
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: macos
+          save-if: false
+
       - name: Check tag matches Cargo.toml
         run: |
           version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)

@@ -25,6 +25,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      # 缓存依赖的编译结果，只在 master 上保存。release 工作流用同一个 shared-key 读取。
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: macos
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Format
         run: cargo fmt --all --check
@@ -35,7 +43,6 @@ jobs:
       - name: Test
         run: cargo test --locked --all-targets
 
-      - name: Build release binary
-        run: |
-          cargo build --locked --release
-          target/release/babry --help
+      # 和发布一样编译两种架构并打包，缓存里才有发布要用的依赖，打包问题也能提前发现。
+      - name: Build Babry.app and DMG
+        run: scripts/package-macos.sh dist
